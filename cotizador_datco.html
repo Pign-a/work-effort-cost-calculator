@@ -1691,7 +1691,7 @@ function getPerfiles() {
 function fmt(val) {
   const tc = tipo === 'manpower' ? cfg.tc.AR : (cfg.tc[pais] || 1);
   if (currency === 'USD') {
-    return 'USD ' + val.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+    return '$ ' + val.toLocaleString('es-AR', { maximumFractionDigits: 0 });
   }
   const amount = val * tc;
   return amount >= 1000000
@@ -1701,7 +1701,7 @@ function fmt(val) {
 
 function fmtLine(val) {
   const tc = tipo === 'manpower' ? cfg.tc.AR : (cfg.tc[pais] || 1);
-  if (currency === 'USD') return 'USD ' + val.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+  if (currency === 'USD') return '$ ' + val.toLocaleString('es-AR', { maximumFractionDigits: 0 });
   const amount = val * tc;
   return amount >= 1000000
     ? '$ ' + (amount / 1000000).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' M'
