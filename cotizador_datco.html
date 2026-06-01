@@ -421,7 +421,14 @@ input:focus, select:focus {
 select option { background: var(--surface-2); }
 
 /* Checkbox */
-.check-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; cursor: pointer; }
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  cursor: pointer;
+  min-height: 44px;
+}
 .check-row input[type=checkbox] {
   appearance: none;
   -webkit-appearance: none;
@@ -481,7 +488,10 @@ select option { background: var(--surface-2); }
 /* TAM chips */
 .tam-chips { display: flex; gap: var(--space-2); margin-top: var(--space-2); flex-wrap: wrap; }
 .tam-chip {
-  padding: 3px var(--space-3);
+  padding: 10px 12px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   font-size: 11px; font-weight: 600;
@@ -676,7 +686,8 @@ select option { background: var(--surface-2); }
   background: var(--surface-1);
   border: 1px solid var(--border-hi);
   border-radius: var(--radius-xl);
-  width: 700px; max-height: 90vh; overflow-y: auto;
+  width: min(700px, calc(100vw - var(--space-8)));
+  max-height: 90vh; overflow-y: auto;
   padding: var(--space-8);
   transform: translateY(14px) scale(0.98);
   transition: transform var(--dur-enter) var(--ease-spring);
@@ -810,6 +821,13 @@ select option { background: var(--surface-2); }
    Breakpoints: 768px (tablet) · 480px (mobile)
    ══════════════════════════════════════════ */
 
+/* ── iOS zoom prevention ── */
+@media (max-width: 480px) {
+  input, select, textarea {
+    font-size: 16px; /* prevents iOS Safari auto-zoom on focus */
+  }
+}
+
 /* ── Tablet (≤ 768px) ── */
 @media (max-width: 768px) {
 
@@ -862,11 +880,22 @@ select option { background: var(--surface-2); }
 @media (max-width: 480px) {
 
   /* Header — modo ultra compacto */
-  .header { padding: 0 var(--space-3); gap: var(--space-2); }
+  .header {
+    padding: 0 var(--space-3);
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
   .dolar-badge { padding: 4px var(--space-2); gap: var(--space-1); }
   .dolar-dot { display: none; }
   .dolar-val { font-size: var(--text-sm); font-weight: 600; }
-  .dolar-refresh { display: none; }    /* quitar refresh en mobile, hay poco espacio */
+  .dolar-refresh {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: var(--space-2);
+  }
   .curr-toggle button { padding: 5px var(--space-2); font-size: 11px; }
   .btn-gear { width: 30px; height: 30px; }
 
