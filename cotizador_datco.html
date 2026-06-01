@@ -953,6 +953,49 @@ select option { background: var(--surface-2); }
 /* Negative margin warning */
 .res-negative .res-val { color: var(--danger) !important; }
 
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface-2);
+  border: 1px solid var(--success);
+  color: var(--success);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+  z-index: 9999;
+  pointer-events: none;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Empty state */
+.results-empty {
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+
+/* Currency badge */
+.curr-badge {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-subtle);
+  color: var(--brand);
+  letter-spacing: 0.05em;
+  margin-left: var(--space-2);
+}
+
 .print-header { display: none; margin-bottom: 16px; }
 .print-header h1 { font-family: 'IBM Plex Mono', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #1a3d6e; }
 .print-header p { font-size: 12px; color: #666; margin-top: 2px; }
@@ -960,6 +1003,8 @@ select option { background: var(--surface-2); }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
+
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 <div class="header">
   <svg class="logo-img" viewBox="0 0 302.05 66.5" xmlns="http://www.w3.org/2000/svg">
@@ -1140,6 +1185,10 @@ select option { background: var(--surface-2); }
   <!-- RESULTADOS -->
   <div class="results-card" id="results-area" style="display:none">
     <div class="print-header"><h1>DATCO · Cotización</h1><p id="print-meta"></p></div>
+    <div id="results-empty" class="results-empty hidden">
+      <span>Ingresá las horas del proyecto para ver la cotización</span>
+    </div>
+    <div id="results-content">
     <div class="results-grid">
       <div class="res-item c1">
         <div class="res-label">Costo</div>
@@ -1160,8 +1209,9 @@ select option { background: var(--surface-2); }
       </div>
     </div>
     <div class="breakdown-divider"></div>
-    <div class="bk-title">Detalle</div>
+    <div class="bk-title">Detalle <span id="curr-badge" class="curr-badge">USD</span></div>
     <div id="breakdown-area"></div>
+    </div>
   </div>
 
 </div>
@@ -1249,6 +1299,20 @@ select option { background: var(--surface-2); }
 </div>
 
 <script>
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = type === 'success' ? 'var(--success)' : 'var(--danger)';
+  t.style.color = type === 'success' ? 'var(--success)' : 'var(--danger)';
+  t.classList.remove('hidden');
+  requestAnimationFrame(() => t.classList.add('show'));
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.classList.add('hidden'), 300);
+  }, 2000);
+}
+
 async function hashPwd(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
@@ -1395,6 +1459,8 @@ function setTipo(t) {
   const ra = document.getElementById('results-area');
   ra.style.display = 'none';
   ra.style.animation = 'none';
+  document.getElementById('results-empty').classList.remove('hidden');
+  document.getElementById('results-content').classList.add('hidden');
   calcular();
 }
 
@@ -1422,6 +1488,8 @@ function setCurrency(c) {
   localStorage.setItem('datco_currency', c);
   document.getElementById('btnARS').classList.toggle('active', c==='ARS');
   document.getElementById('btnUSD').classList.toggle('active', c==='USD');
+  const badge = document.getElementById('curr-badge');
+  if (badge) badge.textContent = c;
   calcular();
 }
 
@@ -1474,7 +1542,7 @@ function getPerfiles() {
     return {
       pos: document.getElementById('mp-pos-'+id)?.value || '',
       sueldo: parseFloat(document.getElementById('mp-sueldo-'+id)?.value) || 0,
-      cant: parseFloat(document.getElementById('mp-cant-'+id)?.value) || 1
+      cant: Math.max(1, parseInt(document.getElementById('mp-cant-'+id)?.value) || 1)
     };
   }).filter(p => p.sueldo > 0);
 }
@@ -1493,8 +1561,10 @@ function fmt(val) {
 function fmtLine(val) {
   const tc = tipo === 'manpower' ? cfg.tc.AR : (cfg.tc[pais] || 1);
   if (currency === 'USD') return 'USD ' + val.toLocaleString('es-AR', { maximumFractionDigits: 0 });
-  const sym = '$';
-  return sym + ' ' + (val * tc).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+  const amount = val * tc;
+  return amount >= 1000000
+    ? '$ ' + (amount / 1000000).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' M'
+    : '$ ' + amount.toLocaleString('es-AR', { maximumFractionDigits: 0 });
 }
 
 function showResults(costo, costo_break, venta, breakdown, extra) {
@@ -1509,6 +1579,8 @@ function showResults(costo, costo_break, venta, breakdown, extra) {
   document.querySelector('.res-item.c3').classList.toggle('res-negative', venta < costo_break);
 
   const ra = document.getElementById('results-area');
+  document.getElementById('results-empty').classList.add('hidden');
+  document.getElementById('results-content').classList.remove('hidden');
   // Re-trigger animation
   ra.style.animation = 'none';
   ra.offsetHeight; // reflow
@@ -1561,12 +1633,20 @@ function calcular() {
   else calcManpower();
 }
 
+function showEmptyState() {
+  const ra = document.getElementById('results-area');
+  ra.style.display = 'block';
+  document.getElementById('results-empty').classList.remove('hidden');
+  document.getElementById('results-content').classList.add('hidden');
+  document.getElementById('btn-export').style.display = 'none';
+}
+
 function calcProyecto() {
   const horas = parseFloat(document.getElementById('proy-horas').value) || 0;
   const nube = document.getElementById('proy-nube').checked;
   const margenPct = (parseFloat(document.getElementById('proy-margen').value) || cfg.margen) / 100;
   const breakPct = cfg.break[pais] / 100;
-  if (!horas) { document.getElementById('results-area').style.display = 'none'; return; }
+  if (!horas) { showEmptyState(); return; }
   const vh = nube ? cfg.vh.nube : cfg.vh.proyecto;
   const costo = horas * vh;
   const costo_break = costo * (1 + breakPct);
@@ -1585,7 +1665,7 @@ function calcSoporte() {
   const psfp = document.getElementById('sop-psfp').checked;
   const breakPct = cfg.break[pais] / 100;
   const tc = cfg.tc.AR;
-  if (!horas) { document.getElementById('results-area').style.display = 'none'; return; }
+  if (!horas) { showEmptyState(); return; }
 
   const vh = cfg.vh.soporte;
   const hora_extra = ((cfg.sp.AR / tc) * 1.24 / 180) * 1.75;
@@ -1634,7 +1714,7 @@ function calcManpower() {
   const margenPct = (parseFloat(document.getElementById('mp-margen').value) || cfg.margen) / 100;
   const breakPct = cfg.break.AR / 100;
   const tc = cfg.tc.AR;
-  if (!perfiles.length) { document.getElementById('results-area').style.display = 'none'; return; }
+  if (!perfiles.length) { showEmptyState(); return; }
 
   const cs = cfg.cs;
   const bk = [];
@@ -1775,7 +1855,7 @@ async function saveSettings() {
   closeSettings();
   updatePaisInfo();
   calcular();
-  alert('Configuración guardada');
+  showToast('Configuración guardada');
 }
 </script>
 </body>
