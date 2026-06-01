@@ -982,6 +982,23 @@ select option { background: var(--surface-2); }
 /* Negative margin warning */
 .res-negative .res-val { color: var(--danger) !important; }
 
+/* ── Spin animation for rate refresh ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinning {
+  animation: spin 0.7s linear infinite;
+}
+
+/* ── Export button success state ── */
+.btn-export-success {
+  color: var(--success) !important;
+  border: 1px solid var(--success) !important;
+  background: var(--success-subtle) !important;
+  transform: scale(1.04);
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+
 /* Toast notification */
 .toast {
   position: fixed;
@@ -1328,6 +1345,19 @@ select option { background: var(--surface-2); }
 </div>
 
 <script>
+function animateValue(el, fromRaw, toRaw, formatter, duration = 180) {
+  const start = performance.now();
+  function step(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    // ease-out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = fromRaw + (toRaw - fromRaw) * eased;
+    el.textContent = formatter(current);
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1425,6 +1455,16 @@ function exportExcel() {
   ws['!cols'] = [{ wch: 5 }, { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Cotización');
   XLSX.writeFile(wb, `DATCO_Cotizacion_${tipoLabel}_${now.toISOString().slice(0,10)}.xlsx`);
+
+  // Success feedback
+  const btnExport = document.getElementById('btn-export');
+  const origHTML = btnExport.innerHTML;
+  btnExport.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Exportado';
+  btnExport.classList.add('btn-export-success');
+  setTimeout(() => {
+    btnExport.innerHTML = origHTML;
+    btnExport.classList.remove('btn-export-success');
+  }, 1500);
 }
 
 window.onload = () => {
@@ -1442,6 +1482,8 @@ window.onload = () => {
 let liveTC = null;
 
 async function fetchDolar() {
+  const refreshBtn = document.querySelector('.dolar-refresh svg') || document.querySelector('.dolar-refresh');
+  refreshBtn?.classList.add('spinning');
   try {
     const r = await fetch('https://dolarapi.com/v1/dolares/oficial');
     if (!r.ok) throw new Error();
@@ -1457,6 +1499,8 @@ async function fetchDolar() {
     const badge = document.getElementById('dolarVal');
     badge.textContent = cfg.tc.AR ? '~ $ ' + cfg.tc.AR.toLocaleString('es-AR') : '—';
     badge.title = 'Valor estimado (sin conexión)';
+  } finally {
+    refreshBtn?.classList.remove('spinning');
   }
   fetchRatesLatam();
 }
@@ -1598,10 +1642,18 @@ function fmtLine(val) {
 
 function showResults(costo, costo_break, venta, breakdown, extra) {
   const margen = venta - costo_break;
-  document.getElementById('r-costo').textContent = fmt(costo);
-  document.getElementById('r-break').textContent = fmt(costo_break);
-  document.getElementById('r-venta').textContent = fmt(venta);
-  document.getElementById('r-puntos').textContent = fmt(margen);
+
+  function animateResult(id, newVal) {
+    const el = document.getElementById(id);
+    const prev = parseFloat(el.dataset.rawValue) || 0;
+    el.dataset.rawValue = newVal;
+    animateValue(el, prev, newVal, fmt, 180);
+  }
+
+  animateResult('r-costo', costo);
+  animateResult('r-break', costo_break);
+  animateResult('r-venta', venta);
+  animateResult('r-puntos', margen);
 
   // Negative margin warning
   document.querySelector('.res-item.c4').classList.toggle('res-negative', margen < 0);
