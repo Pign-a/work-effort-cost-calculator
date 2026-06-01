@@ -579,6 +579,8 @@ select option { background: var(--surface-2); }
   color: var(--text-3);
   margin-bottom: var(--space-3);
 }
+.res-sub { font-size: var(--text-xs); color: var(--text-3); display: block; margin-top: 2px; }
+
 .res-val {
   font-family: 'IBM Plex Mono', sans-serif;
   font-size: var(--text-3xl);
@@ -977,8 +979,8 @@ select option { background: var(--surface-2); }
       </button>
     </div>
     <div class="curr-toggle" role="group" aria-label="Moneda">
-      <button id="btnARS" onclick="setCurrency('ARS')">ARS</button>
-      <button class="active" id="btnUSD" onclick="setCurrency('USD')">USD</button>
+      <button id="btnARS" onclick="setCurrency('ARS')" aria-label="Ver valores en pesos argentinos" title="Ver valores en pesos argentinos">ARS</button>
+      <button class="active" id="btnUSD" onclick="setCurrency('USD')" aria-label="Ver valores en dólares" title="Ver valores en dólares">USD</button>
     </div>
     <button class="btn-gear" id="theme-toggle" onclick="toggleTheme()" aria-label="Cambiar tema" title="Cambiar tema">
       <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1092,13 +1094,13 @@ select option { background: var(--surface-2); }
         <div class="form-group">
           <label>Modalidad</label>
           <div class="radio-row" style="margin-top:2px">
-            <div class="radio-opt active" id="sop-5x8" onclick="setModalidad('5x8')" role="radio" aria-checked="true" tabindex="0">5×8</div>
-            <div class="radio-opt" id="sop-7x24" onclick="setModalidad('7x24')" role="radio" aria-checked="false" tabindex="0">7×24</div>
+            <div class="radio-opt active" id="sop-5x8" onclick="setModalidad('5x8')" role="radio" aria-checked="true" tabindex="0" title="5 días / 8 horas">5×8</div>
+            <div class="radio-opt" id="sop-7x24" onclick="setModalidad('7x24')" role="radio" aria-checked="false" tabindex="0" title="7 días / 24 horas (guardia continua)">7×24</div>
           </div>
         </div>
         <div class="form-group">
-          <label for="sop-tam">TAM %</label>
-          <input type="number" id="sop-tam" min="0" max="100" step="1" placeholder="0" oninput="calcular()">
+          <label for="sop-tam">TAM % (Cuenta Técnica)</label>
+          <input type="number" id="sop-tam" min="0" max="100" step="1" placeholder="0" oninput="calcular()" title="Porcentaje de horas con servicio de Technical Account Manager incluido">
           <div class="tam-chips">
             <div class="tam-chip" onclick="setTam(0)">Sin TAM</div>
             <div class="tam-chip" onclick="setTam(10)">10%</div>
@@ -1144,7 +1146,7 @@ select option { background: var(--surface-2); }
         <div class="res-val" id="r-costo">—</div>
       </div>
       <div class="res-item c2">
-        <div class="res-label">Costo Break</div>
+        <div class="res-label">Costo c/overhead<small class="res-sub">Valor a cargar en Salesforce</small></div>
         <div class="res-val" id="r-break">—</div>
         <div class="sf-pill">Salesforce</div>
       </div>
@@ -1153,7 +1155,7 @@ select option { background: var(--surface-2); }
         <div class="res-val" id="r-venta">—</div>
       </div>
       <div class="res-item c4">
-        <div class="res-label">Margen</div>
+        <div class="res-label">Ganancia neta (USD)</div>
         <div class="res-val" id="r-puntos">—</div>
       </div>
     </div>
@@ -1204,7 +1206,7 @@ select option { background: var(--surface-2); }
         <div class="s-group"><label>🇺🇾 UYU</label><input type="number" id="s-tc-UY"></div>
         <div class="s-group"><label>🇵🇪 PEN</label><input type="number" id="s-tc-PE"></div>
       </div>
-      <div class="sec-title">Break por país (%)</div>
+      <div class="sec-title">Overhead operativo por país (%)</div>
       <div class="s-grid four">
         <div class="s-group"><label>🇦🇷 AR %</label><input type="number" id="s-break-AR" step="0.1"></div>
         <div class="s-group"><label>🇨🇱 CL %</label><input type="number" id="s-break-CL" step="0.1"></div>
@@ -1661,7 +1663,7 @@ function calcManpower() {
     bk.push({ name: `Vacaciones (fórmula)`, val: vac / tc });
     bk.push({ name: `Aguinaldo (${cs.aguinaldo}%)`, val: aguinaldo / tc });
     bk.push({ name: `Management (${cs.management}%)`, val: management / tc });
-    bk.push({ name: `Prov. Reemplazo (base/2/12)`, val: reemplazo / tc });
+    bk.push({ name: `Provisión reemplazo (mensual)`, val: reemplazo / tc });
     if (p.cant > 1) bk.push({ name: `Subtotal × ${p.cant}`, val: usd });
   });
 
