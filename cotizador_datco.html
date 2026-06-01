@@ -187,32 +187,7 @@ body {
 }
 .dolar-refresh:hover { color: var(--brand); transform: rotate(180deg); }
 
-/* Currency toggle */
-.curr-toggle {
-  display: flex;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-.curr-toggle button {
-  padding: 6px var(--space-3);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-smooth),
-              background var(--dur-fast) var(--ease-smooth);
-  font-family: 'IBM Plex Sans', sans-serif;
-}
-.curr-toggle button:hover:not(.active) { color: var(--text-2); background: var(--surface-3); }
-.curr-toggle button:active { opacity: 0.8; }
-.curr-toggle button.active {
-  background: var(--brand);
-  color: oklch(100% 0 0);
-}
+/* Currency toggle — see TASK 3.8 block below for full styles */
 
 .btn-gear {
   width: 34px; height: 34px;
@@ -982,6 +957,87 @@ select option { background: var(--surface-2); }
 /* Negative margin warning */
 .res-negative .res-val { color: var(--danger) !important; }
 
+/* ══════════════════════════════════════════
+   TASK 3.4 — Perfil row enter/exit
+   ══════════════════════════════════════════ */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.perfil-row-enter {
+  animation: slideDown var(--dur-enter) var(--ease-out) forwards;
+}
+.perfil-row-exit {
+  animation: slideDown var(--dur-base) var(--ease-in) reverse forwards;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════
+   TASK 3.7 — Page load stagger entrance
+   ══════════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.header        { animation: fadeUp var(--dur-enter) var(--ease-out) 0ms   both; }
+.tipo-grid     { animation: fadeUp var(--dur-enter) var(--ease-out) 60ms  both; }
+.pais-row      { animation: fadeUp var(--dur-enter) var(--ease-out) 100ms both; }
+.form-section:first-of-type { animation: fadeUp var(--dur-enter) var(--ease-out) 140ms both; }
+
+/* ══════════════════════════════════════════
+   TASK 3.8 — Animated ARS/USD toggle pill
+   ══════════════════════════════════════════ */
+.curr-toggle {
+  position: relative;
+  display: inline-flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  overflow: visible;
+}
+.curr-toggle::before {
+  content: '';
+  position: absolute;
+  top: 2px; bottom: 2px;
+  width: calc(50% - 2px);
+  background: var(--brand);
+  border-radius: var(--radius-pill);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.curr-toggle[data-active="usd"]::before { transform: translateX(calc(100% + 4px)); }
+.curr-toggle[data-active="ars"]::before { transform: translateX(0); }
+.curr-toggle button {
+  position: relative;
+  z-index: 1;
+  padding: 6px var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-smooth);
+  font-family: 'IBM Plex Sans', sans-serif;
+  border-radius: var(--radius-pill);
+}
+.curr-toggle button:hover:not(.active) { color: var(--text-2); }
+.curr-toggle button:active { opacity: 0.8; }
+.curr-toggle button.active {
+  background: transparent;
+  color: oklch(100% 0 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header, .tipo-grid, .pais-row, .form-section:first-of-type,
+  .perfil-row-enter, .perfil-row-exit {
+    animation: none !important;
+  }
+  .curr-toggle::before {
+    transition: none !important;
+  }
+}
+
 /* ── Spin animation for rate refresh ── */
 @keyframes spin {
   to { transform: rotate(360deg); }
@@ -1493,6 +1549,12 @@ async function fetchDolar() {
     document.getElementById('dolarVal').textContent = '$ ' + d.venta.toLocaleString('es-AR');
     const tcField = document.getElementById('s-tc-AR');
     if (tcField) tcField.value = d.venta;
+    const badge = document.querySelector('.dolar-badge');
+    if (badge) {
+      badge.style.transition = `color var(--dur-base) var(--ease-out)`;
+      badge.style.color = 'var(--success)';
+      setTimeout(() => { badge.style.color = ''; }, 1200);
+    }
   } catch {
     const dot = document.querySelector('.dolar-dot');
     if (dot) { dot.style.background = 'var(--danger)'; dot.style.animation = 'none'; }
@@ -1535,6 +1597,7 @@ function setTipo(t) {
   document.getElementById('results-empty').classList.remove('hidden');
   document.getElementById('results-content').classList.add('hidden');
   calcular();
+  staggerResultCards();
 }
 
 function updatePaisInfo() {
@@ -1554,6 +1617,7 @@ function setPais(p) {
   pais = p;
   ['AR','CL','UY','PE'].forEach(x => document.getElementById('p-'+x).classList.toggle('active', x===p));
   calcular();
+  staggerResultCards();
 }
 
 function setCurrency(c) {
@@ -1561,6 +1625,8 @@ function setCurrency(c) {
   localStorage.setItem('datco_currency', c);
   document.getElementById('btnARS').classList.toggle('active', c==='ARS');
   document.getElementById('btnUSD').classList.toggle('active', c==='USD');
+  const toggle = document.querySelector('.curr-toggle');
+  if (toggle) toggle.dataset.active = c.toLowerCase();
   const badge = document.getElementById('curr-badge');
   if (badge) badge.textContent = c;
   calcular();
@@ -1600,12 +1666,14 @@ function addPerfil() {
     <button class="btn-remove" onclick="removePerfil(${id})" title="Quitar" aria-label="Quitar perfil">✕</button>
   `;
   document.getElementById('perfil-list').appendChild(div);
+  requestAnimationFrame(() => div.classList.add('perfil-row-enter'));
 }
 
 function removePerfil(id) {
   const el = document.getElementById('perfil-' + id);
-  if (el) el.remove();
-  calcular();
+  if (!el) return;
+  el.classList.add('perfil-row-exit');
+  setTimeout(() => { el.remove(); calcular(); }, 200);
 }
 
 function getPerfiles() {
@@ -1706,6 +1774,22 @@ function showResults(costo, costo_break, venta, breakdown, extra) {
   const puntos = margen * 0.08;
   html += `<div class="puntos-row"><span class="puntos-label">Puntos</span><span class="puntos-val">${puntos.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</span></div>`;
   document.getElementById('breakdown-area').innerHTML = html;
+}
+
+function staggerResultCards() {
+  const cards = document.querySelectorAll('.res-item, .res-card');
+  cards.forEach((card, i) => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(6px)';
+    card.style.transition = 'none';
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        card.style.transition = `opacity var(--dur-enter) var(--ease-out), transform var(--dur-enter) var(--ease-out)`;
+        card.style.opacity = '';
+        card.style.transform = '';
+      }, i * 40);
+    });
+  });
 }
 
 function calcular() {
