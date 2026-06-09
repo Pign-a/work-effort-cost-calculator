@@ -746,6 +746,21 @@ select option { background: var(--surface-2); }
    ══════════════════════════════════════════ */
 .hidden { display: none !important; }
 
+/* Clear button */
+.btn-clear {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: 9px var(--space-4);
+  background: transparent;
+  color: var(--text-3); border: 1px solid var(--border); border-radius: var(--radius-md);
+  font-family: 'IBM Plex Sans', sans-serif; font-size: var(--text-sm); font-weight: 500;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-smooth),
+              border-color var(--dur-fast) var(--ease-smooth),
+              background var(--dur-fast) var(--ease-smooth);
+}
+.btn-clear:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-subtle); }
+.btn-clear:active { opacity: 0.8; }
+
 /* Export button */
 .btn-export {
   display: inline-flex; align-items: center; gap: var(--space-2);
@@ -1103,6 +1118,7 @@ select option { background: var(--surface-2); }
 .print-header p { font-size: 12px; color: #666; margin-top: 2px; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -1318,7 +1334,24 @@ select option { background: var(--surface-2); }
 
 </div>
 
-<div class="btn-export-wrap" style="max-width:880px;margin:0 auto;padding:0 var(--space-5) var(--space-10);text-align:right">
+<div class="btn-export-wrap" style="max-width:880px;margin:0 auto;padding:0 var(--space-5) var(--space-10);display:flex;justify-content:space-between;align-items:center;gap:var(--space-2)">
+  <button class="btn-clear" id="btn-clear" onclick="clearForm()" title="Borrar todos los campos">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+    </svg>
+    Limpiar
+  </button>
+  <div style="display:flex;gap:var(--space-2)">
+  <button class="btn-export" id="btn-pdf" onclick="exportPDF()" style="display:none;background:var(--surface-2);color:var(--text-1);border:1px solid var(--border)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+    Exportar PDF
+  </button>
   <button class="btn-export" id="btn-export" onclick="exportExcel()" style="display:none">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -1327,6 +1360,7 @@ select option { background: var(--surface-2); }
     </svg>
     Exportar Excel
   </button>
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -1523,16 +1557,301 @@ function exportExcel() {
   }, 1500);
 }
 
+// Logo DATCO real (blanco, para cabecera oscura del PDF). html2canvas 1.x no
+// renderiza SVG inline, pero sí <img> con data URI. Rasterizamos el SVG a PNG
+// con canvas nativo y lo cacheamos para reusarlo entre exportaciones.
+const LOGO_SVG_WHITE = `<svg viewBox="0 0 150 66.5" width="150" height="66.5" xmlns="http://www.w3.org/2000/svg">
+<path fill="#ffffff" d="m84.81,30.54c-.2-.43-.49-.85-.88-1.24-.46-.46-1.01-.79-1.64-1.01-.64-.22-1.32-.32-2.05-.32h-5.05v13.99h5.05c.73,0,1.42-.11,2.05-.32.64-.22,1.18-.55,1.64-1.01.39-.39.69-.81.88-1.26.2-.45.33-.91.41-1.4.08-.48.12-.98.12-1.49v-3.1c0-.51-.04-1-.12-1.47-.08-.47-.22-.92-.41-1.36Zm-2.31,6.8c-.07.56-.23,1-.48,1.31-.24.29-.52.51-.84.65-.33.14-.73.22-1.2.22h-2.06v-9.11h2.06c.47,0,.87.07,1.2.22.33.14.61.36.84.65.13.16.24.33.31.53.08.2.14.44.18.73.04.29.07.63.08,1.01.01.39.02.84.02,1.37,0,1.06-.04,1.87-.11,2.44Z"/>
+<path fill="#ffffff" d="m91.98,27.97l-5.09,13.99h2.85l.84-2.47h4.97l.82,2.47h2.85l-5.11-13.99h-2.14Zm-.63,9.21l1.77-5.09,1.71,5.09h-3.48Z"/>
+<polygon fill="#ffffff" points="99.23 30.4 102.88 30.4 102.88 41.95 105.61 41.95 105.61 30.4 109.26 30.4 109.26 27.97 99.23 27.97 99.23 30.4"/>
+<path fill="#ffffff" d="m113.49,31.81c.07-.36.16-.67.29-.92.13-.26.31-.49.53-.72.3-.31.66-.56,1.09-.73.43-.17.87-.26,1.33-.26.88,0,1.6.26,2.18.77.58.51.96,1.2,1.14,2.06h1.53c-.12-.65-.32-1.24-.6-1.76-.28-.52-.64-.95-1.06-1.31-.43-.35-.91-.62-1.44-.81-.54-.19-1.12-.28-1.75-.28-.69,0-1.35.12-1.95.37-.61.25-1.15.61-1.62,1.08-.33.33-.58.67-.76,1.02-.18.35-.31.75-.39,1.19-.09.44-.13.94-.15,1.49-.01.56-.02,1.21-.02,1.95s0,1.4.02,1.96.06,1.05.15,1.49c.08.44.22.84.39,1.19.18.35.43.69.76,1.02.47.47,1.01.83,1.62,1.08.61.25,1.26.37,1.95.37.63,0,1.21-.09,1.75-.28.54-.19,1.02-.46,1.44-.82.43-.35.78-.79,1.06-1.3.28-.52.48-1.1.6-1.76h-1.49c-.18.86-.57,1.55-1.16,2.06-.59.51-1.32.77-2.2.77-.46,0-.9-.08-1.33-.25-.43-.17-.79-.41-1.09-.73-.22-.22-.4-.46-.53-.72-.13-.25-.23-.56-.29-.92-.07-.36-.11-.79-.13-1.3-.02-.5-.03-1.12-.03-1.86s.01-1.35.03-1.85c.02-.51.06-.94.13-1.3Z"/>
+<path fill="#ffffff" d="m134.6,33.01c-.01-.56-.06-1.05-.15-1.49-.09-.44-.22-.83-.39-1.19-.18-.36-.43-.69-.76-1.02-.97-.97-2.16-1.45-3.58-1.45s-2.61.48-3.57,1.45c-.33.33-.58.67-.76,1.02-.18.35-.31.75-.39,1.19-.09.44-.13.94-.15,1.49-.01.56-.02,1.21-.02,1.95s0,1.4.02,1.96c.01.56.06,1.05.15,1.49.08.44.22.84.39,1.19.18.35.43.69.76,1.02.97.97,2.16,1.45,3.57,1.45.71,0,1.36-.12,1.96-.37.6-.25,1.14-.61,1.61-1.08.33-.33.58-.67.76-1.02.18-.35.31-.75.39-1.19.08-.44.13-.94.15-1.49s.02-1.21.02-1.96,0-1.4-.02-1.95Zm-1.5,3.81c-.02.5-.06.93-.13,1.29-.07.35-.16.66-.29.91-.13.25-.31.49-.53.72-.3.31-.66.56-1.09.74-.43.18-.87.26-1.33.26s-.9-.09-1.33-.26c-.43-.18-.79-.42-1.09-.74-.22-.22-.4-.46-.53-.72-.13-.26-.23-.56-.29-.91-.07-.36-.11-.78-.13-1.29-.02-.5-.03-1.12-.03-1.86s.01-1.35.03-1.85c.02-.51.06-.93.13-1.29.07-.35.16-.66.29-.91.13-.25.31-.49.53-.72.3-.31.66-.56,1.09-.74.43-.18.87-.27,1.33-.27s.9.09,1.33.27c.43.18.79.42,1.09.74.22.22.4.46.53.72s.23.56.29.91c.07.35.11.78.13,1.29.02.5.03,1.12.03,1.85s-.01,1.35-.03,1.86Z"/>
+<path fill="#ffffff" d="m37.87,1.94c-2.55-2.55-6.77-2.47-9.42.18L2.05,28.53c-2.66,2.65-2.74,6.87-.18,9.43l26.76,26.77c2.56,2.55,6.78,2.47,9.43-.19l26.4-26.4c2.65-2.65,2.73-6.87.18-9.43L37.87,1.94Zm7.92,32.6l-6.72,6.72-19.05-19.05,6.72-6.72c2.1-2.1,4.35-3.15,6.74-3.16,1.14,0,2.2.21,3.19.63.99.42,1.89.96,2.7,1.61.81.65,1.71,1.47,2.69,2.45l.97.97.95.95c1.03,1.03,1.89,1.97,2.57,2.81.69.85,1.26,1.78,1.72,2.8.46,1.03.68,2.11.68,3.24,0,2.39-1.06,4.64-3.16,6.74Z"/>
+<path fill="#ffffff" d="m40.13,20.9c-1.1-1.1-1.96-1.93-2.59-2.49-.63-.56-1.28-1.03-1.96-1.4-.67-.37-1.34-.57-1.98-.6-1.65-.07-3.16.58-4.55,1.96l-3.52,3.52,13.85,13.85,3.52-3.52c1.39-1.39,2.05-2.9,1.97-4.53-.04-.95-.43-1.91-1.17-2.88-.74-.97-1.93-2.27-3.58-3.92Z"/>
+</svg>`;
+
+let _logoPngCache = null;
+function rasterizeLogo() {
+  if (_logoPngCache) return Promise.resolve(_logoPngCache);
+  return new Promise(resolve => {
+    const img = new Image();
+    const uri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(LOGO_SVG_WHITE);
+    img.onload = () => {
+      const scale = 4; // alta resolución para nitidez en el PDF
+      const cv = document.createElement('canvas');
+      cv.width = 150 * scale; cv.height = 66.5 * scale;
+      const ctx = cv.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, 150, 66.5);
+      _logoPngCache = cv.toDataURL('image/png');
+      resolve(_logoPngCache);
+    };
+    img.onerror = () => resolve(null); // fallback: cabecera sin logo
+    img.src = uri;
+  });
+}
+
+async function exportPDF() {
+  const now = new Date();
+  const tipoLabel = { proyecto: 'Proyecto', soporte: 'Soporte', manpower: 'Manpower' }[tipo];
+  const paisLabel = { AR: 'Argentina', CL: 'Chile', UY: 'Uruguay', PE: 'Peru' }[pais] || 'Argentina';
+  const clienteId = tipo + '-cliente';
+  const cliente = document.getElementById(clienteId)?.value?.trim() || '';
+  const dateStr = now.toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
+
+  const rCosto  = document.getElementById('r-costo')?.textContent || '—';
+  const rBreak  = document.getElementById('r-break')?.textContent || '—';
+  const rVenta  = document.getElementById('r-venta')?.textContent || '—';
+  const rPuntos = document.getElementById('r-puntos')?.textContent || '—';
+  const currLabel = currency;
+
+  // Collect breakdown rows — skip puntos-row (rendered separately below KPIs)
+  let bkHTML = '';
+  let puntosVal = '';
+  document.querySelectorAll('#breakdown-area > *').forEach(el => {
+    if (el.classList.contains('bk-section')) {
+      bkHTML += `<tr class="section-row"><td colspan="2">${el.textContent.trim()}</td></tr>`;
+    } else if (el.classList.contains('puntos-row')) {
+      const spans = el.querySelectorAll('span');
+      puntosVal = spans[1]?.textContent.trim() || '';
+    } else if (el.classList.contains('bk-row')) {
+      const name = el.querySelector('.bk-name')?.textContent.trim() || '';
+      const val  = el.querySelector('.bk-val')?.textContent.trim() || '';
+      bkHTML += `<tr><td>${name}</td><td>${val}</td></tr>`;
+    }
+  });
+
+  // Logo DATCO real, rasterizado a PNG (html2canvas no renderiza SVG inline pero
+  // sí <img> con data URI). Si la rasterización falla, logoSVG queda vacío.
+  const logoPng = await rasterizeLogo();
+  const logoSVG = logoPng
+    ? `<img src="${logoPng}" alt="DATCO" style="height:34px;width:auto;display:block">`
+    : '';
+
+  // Ghost diamond (decorative background for header)
+  const ghostDiamond = `<svg viewBox="0 0 66.5 66.5" xmlns="http://www.w3.org/2000/svg" style="position:absolute;right:-10px;top:-20px;height:140px;width:140px;opacity:0.06;pointer-events:none">
+    <path fill="#ffffff" d="m37.87,1.94c-2.55-2.55-6.77-2.47-9.42.18L2.05,28.53c-2.66,2.65-2.74,6.87-.18,9.43l26.76,26.77c2.56,2.55,6.78,2.47,9.43-.19l26.4-26.4c2.65-2.65,2.73-6.87.18-9.43L37.87,1.94Zm7.92,32.6l-6.72,6.72-19.05-19.05,6.72-6.72c2.1-2.1,4.35-3.15,6.74-3.16,1.14,0,2.2.21,3.19.63.99.42,1.89.96,2.7,1.61.81.65,1.71,1.47,2.69,2.45l.97.97.95.95c1.03,1.03,1.89,1.97,2.57,2.81.69.85,1.26,1.78,1.72,2.8.46,1.03.68,2.11.68,3.24,0,2.39-1.06,4.64-3.16,6.74Z"/>
+    <path fill="#ffffff" d="m40.13,20.9c-1.1-1.1-1.96-1.93-2.59-2.49-.63-.56-1.28-1.03-1.96-1.4-.67-.37-1.34-.57-1.98-.6-1.65-.07-3.16.58-4.55,1.96l-3.52,3.52,13.85,13.85,3.52-3.52c1.39-1.39,2.05-2.9,1.97-4.53-.04-.95-.43-1.91-1.17-2.88-.74-.97-1.93-2.27-3.58-3.92Z"/>
+  </svg>`;
+
+  // Loading state on button
+  const btnPdf = document.getElementById('btn-pdf');
+  const origPdfHTML = btnPdf.innerHTML;
+  btnPdf.disabled = true;
+  btnPdf.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Generando…`;
+
+  const pdfCSS = `
+  .pdf-root * { box-sizing: border-box; margin: 0; padding: 0; }
+  .pdf-root { font-family: 'IBM Plex Sans', sans-serif; background: #f8fafd; color: #1a2a3a; }
+  .pdf-root .pdf-header { background: #0a1e3d; padding: 24px 36px 22px; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden; }
+  .pdf-root .pdf-header-left { display: flex; align-items: center; gap: 20px; position: relative; z-index: 1; }
+  .pdf-root .pdf-logo-sep { width: 1px; height: 32px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
+  .pdf-root .pdf-tipo-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .pdf-root .pdf-tipo { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: #5b9bd5; }
+  .pdf-root .pdf-subtipo { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.45); }
+  .pdf-root .pdf-header-right { text-align: right; position: relative; z-index: 1; }
+  .pdf-root .pdf-date { font-size: 10px; color: rgba(255,255,255,0.4); margin-bottom: 3px; }
+  .pdf-root .pdf-client { font-size: 15px; font-weight: 600; color: #ffffff; }
+  .pdf-root .pdf-accent { height: 2px; background: linear-gradient(90deg, #2563eb 0%, #38bdf8 60%, #2563eb 100%); }
+  .pdf-root .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); background: #ffffff; border-bottom: 1px solid #dde6f0; }
+  .pdf-root .kpi-cell { padding: 18px 20px 16px; }
+  .pdf-root .kpi-cell + .kpi-cell { border-left: 1px solid #dde6f0; }
+  .pdf-root .kpi-cell.k-venta { background: #f0f6ff; }
+  .pdf-root .kpi-label { font-size: 8.5px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: #8fa4be; margin-bottom: 7px; }
+  .pdf-root .kpi-val { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 700; line-height: 1; letter-spacing: -0.5px; }
+  .pdf-root .kpi-sub { font-size: 9px; color: #a0b4c8; margin-top: 5px; font-weight: 500; }
+  .pdf-root .kpi-cell.k-costo .kpi-val    { color: #4a6a8a; }
+  .pdf-root .kpi-cell.k-break .kpi-val    { color: #1e3a5a; }
+  .pdf-root .kpi-cell.k-venta .kpi-val    { color: #1a54c0; }
+  .pdf-root .kpi-cell.k-ganancia .kpi-val { color: #0f7a4a; }
+  .pdf-root .kpi-cell.k-venta .kpi-label  { color: #6a94d4; }
+  .pdf-root .kpi-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; position: relative; top: -1px; }
+  .pdf-root .k-costo    .kpi-dot { background: #a0b4cc; }
+  .pdf-root .k-break    .kpi-dot { background: #4a7ab5; }
+  .pdf-root .k-venta    .kpi-dot { background: #2563eb; }
+  .pdf-root .k-ganancia .kpi-dot { background: #1a9e6a; }
+  .pdf-root .pdf-body { padding: 28px 36px 36px; }
+  .pdf-root .sec-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .pdf-root .sec-hdr-label { font-size: 8.5px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #8fa4be; white-space: nowrap; }
+  .pdf-root .sec-hdr-pill { font-size: 8px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 99px; background: #e2ecfb; color: #2563eb; }
+  .pdf-root .sec-hdr-line { flex: 1; height: 1px; background: #dde6f0; }
+  .pdf-root .bk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .pdf-root .bk-table td { padding: 7px 8px; color: #3a4e62; border-bottom: 1px solid #edf2f8; }
+  .pdf-root .bk-table td:last-child { text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12px; color: #1a2a3a; white-space: nowrap; width: 120px; }
+  .pdf-root .bk-table tr.section-row td { font-size: 8.5px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #2563eb; padding: 16px 8px 5px; border-bottom: 1px solid #dde6f0; }
+  .pdf-root .bk-table tr.even-row td { background: #f7fafd; }
+  .pdf-root .puntos-band { margin-top: 20px; background: #0a1e3d; border-radius: 8px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .pdf-root .puntos-left { display: flex; flex-direction: column; gap: 2px; }
+  .pdf-root .puntos-eyebrow { font-size: 8px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.35); }
+  .pdf-root .puntos-label-main { font-size: 13px; font-weight: 600; color: #ffffff; }
+  .pdf-root .puntos-val-note { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 3px; }
+  .pdf-root .puntos-val { font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 700; color: #5b9bd5; letter-spacing: -1px; line-height: 1; }
+  .pdf-root .pdf-footer { margin-top: 28px; padding: 12px 0; border-top: 1px solid #dde6f0; display: flex; justify-content: space-between; align-items: center; }
+  .pdf-root .pdf-footer-left { display: flex; align-items: center; gap: 10px; }
+  .pdf-root .pdf-footer-brand { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #0a1e3d; }
+  .pdf-root .pdf-footer-sep { color: #ccd6e4; font-size: 10px; }
+  .pdf-root .pdf-footer-note { font-size: 9px; color: #9dafc4; }
+  .pdf-root .pdf-footer-right { font-size: 9px; color: #9dafc4; }
+  `;
+
+  // nth-child(even) doesn't work reliably in html2canvas — add class manually
+  let rowIndex = 0;
+  const bkHTMLZebra = bkHTML.replace(/<tr(?! class="section-row")/g, () => {
+    rowIndex++;
+    return rowIndex % 2 === 0 ? '<tr class="even-row"' : '<tr';
+  });
+
+  const bodyHTML = `
+<div class="pdf-header">
+  ${ghostDiamond}
+  <div class="pdf-header-left">
+    ${logoSVG}
+    <div class="pdf-logo-sep"></div>
+    <div class="pdf-tipo-wrap">
+      <div class="pdf-tipo">${tipoLabel}</div>
+      ${tipo !== 'manpower' ? `<div class="pdf-subtipo">${paisLabel}</div>` : ''}
+    </div>
+  </div>
+  <div class="pdf-header-right">
+    <div class="pdf-date">${dateStr}</div>
+    ${cliente ? `<div class="pdf-client">${cliente}</div>` : '<div class="pdf-client" style="color:rgba(255,255,255,0.25);font-weight:400;font-size:12px">Sin cliente especificado</div>'}
+  </div>
+</div>
+<div class="pdf-accent"></div>
+<div class="kpi-strip">
+  <div class="kpi-cell k-costo">
+    <div class="kpi-label"><span class="kpi-dot"></span>Costo</div>
+    <div class="kpi-val">${rCosto}</div>
+    <div class="kpi-sub">${currLabel}</div>
+  </div>
+  <div class="kpi-cell k-break">
+    <div class="kpi-label"><span class="kpi-dot"></span>Costo con Break</div>
+    <div class="kpi-val">${rBreak}</div>
+    <div class="kpi-sub">Salesforce</div>
+  </div>
+  <div class="kpi-cell k-venta">
+    <div class="kpi-label"><span class="kpi-dot"></span>Venta sugerida</div>
+    <div class="kpi-val">${rVenta}</div>
+    <div class="kpi-sub">${currLabel}</div>
+  </div>
+  <div class="kpi-cell k-ganancia">
+    <div class="kpi-label"><span class="kpi-dot"></span>Ganancia neta</div>
+    <div class="kpi-val">${rPuntos}</div>
+    <div class="kpi-sub">USD</div>
+  </div>
+</div>
+<div class="pdf-body">
+  <div class="sec-hdr">
+    <span class="sec-hdr-label">Detalle del calculo</span>
+    <span class="sec-hdr-pill">${currLabel}</span>
+    <div class="sec-hdr-line"></div>
+  </div>
+  <table class="bk-table"><tbody>${bkHTMLZebra}</tbody></table>
+  ${puntosVal ? `
+  <div class="puntos-band">
+    <div class="puntos-left">
+      <div class="puntos-eyebrow">Microsoft Partner Points</div>
+      <div class="puntos-label-main">Puntos estimados</div>
+      <div class="puntos-val-note">8% sobre ganancia neta</div>
+    </div>
+    <div class="puntos-val">${puntosVal}</div>
+  </div>` : ''}
+  <div class="pdf-footer">
+    <div class="pdf-footer-left">
+      <div class="pdf-footer-brand">DATCO</div>
+      <div class="pdf-footer-sep">·</div>
+      <div class="pdf-footer-note">Documento confidencial</div>
+    </div>
+    <div class="pdf-footer-right">${dateStr}</div>
+  </div>
+</div>`;
+
+  // Inject scoped styles into <head> (scoped to .pdf-root — no page contamination)
+  const styleEl = document.createElement('style');
+  styleEl.id = 'pdf-tmp-style';
+  styleEl.textContent = pdfCSS.replace(/\n\s*/g, ' ');
+  document.head.appendChild(styleEl);
+
+  // html2canvas (bundle 1.x) sólo captura elementos pintados en el flujo
+  // normal del documento: si el contenedor está offscreen, oculto o dentro de
+  // un ancestro posicionado (fixed/absolute), el canvas sale en blanco o con
+  // altura 0. Por eso el contenedor se inserta en el flujo de <body> y se tapa
+  // visualmente con un overlay fijo encima (la oclusión no afecta al clonado).
+  const container = document.createElement('div');
+  container.className = 'pdf-root';
+  container.style.cssText = 'width:794px;';
+  container.innerHTML = bodyHTML;
+  document.body.insertBefore(container, document.body.firstChild);
+
+  const coverOverlay = document.createElement('div');
+  coverOverlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:2147483646;';
+  document.body.appendChild(coverOverlay);
+  const prevScroll = window.scrollY;
+  window.scrollTo(0, 0);
+
+  const filename = `DATCO_${tipoLabel}${cliente ? '_' + cliente.replace(/\s+/g,'_') : ''}_${now.toISOString().slice(0,10)}.pdf`;
+
+  // html2canvas 1.x no soporta oklch() y recorre los estilos heredados de
+  // <html>/<body>. Neutralizamos color/background con hex durante la captura
+  // y los restauramos en cleanup.
+  const htmlEl = document.documentElement;
+  const bodyEl = document.body;
+  const savedInline = {
+    htmlColor: htmlEl.style.color, htmlBg: htmlEl.style.background,
+    bodyColor: bodyEl.style.color, bodyBg: bodyEl.style.background
+  };
+  htmlEl.style.setProperty('color', '#1a2a3a', 'important');
+  htmlEl.style.setProperty('background', '#ffffff', 'important');
+  bodyEl.style.setProperty('color', '#1a2a3a', 'important');
+  bodyEl.style.setProperty('background', '#ffffff', 'important');
+
+  const cleanup = () => {
+    htmlEl.style.color = savedInline.htmlColor;
+    htmlEl.style.background = savedInline.htmlBg;
+    bodyEl.style.color = savedInline.bodyColor;
+    bodyEl.style.background = savedInline.bodyBg;
+    container.remove();
+    coverOverlay.remove();
+    window.scrollTo(0, prevScroll);
+    document.getElementById('pdf-tmp-style')?.remove();
+    btnPdf.disabled = false;
+    btnPdf.innerHTML = origPdfHTML;
+  };
+
+  html2pdf().set({
+    margin: 0,
+    filename,
+    image: { type: 'jpeg', quality: 0.97 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#f8fafd',
+      windowWidth: 794
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(container).save().then(() => {
+    cleanup();
+    showToast('PDF descargado');
+  }).catch(() => {
+    cleanup();
+    showToast('Error al generar PDF', 'error');
+  });
+}
+
 window.onload = () => {
+  _suppressSave = true;
   fetchDolar();
   loadSettingsToForm();
-  addPerfil();
   document.getElementById('proy-margen').value = cfg.margen;
-  document.getElementById('sop-margen').value = cfg.margen;
-  document.getElementById('mp-margen').value = cfg.margen;
+  document.getElementById('sop-margen').value  = cfg.margen;
+  document.getElementById('mp-margen').value   = cfg.margen;
   const savedCurrency = localStorage.getItem('datco_currency') || 'USD';
   setCurrency(savedCurrency);
   updatePaisInfo();
+  _suppressSave = false;
+  const restored = loadFormState();
+  if (!restored) addPerfil(); // fallback: primera visita sin estado guardado
 };
 
 let liveTC = null;
@@ -1737,6 +2056,7 @@ function showResults(costo, costo_break, venta, breakdown, extra) {
   ra.style.display = 'block';
 
   document.getElementById('btn-export').style.display = 'inline-flex';
+  document.getElementById('btn-pdf').style.display = 'inline-flex';
 
   const now = new Date();
   const meta = `${tipo.charAt(0).toUpperCase()+tipo.slice(1)} · ${['AR','CL','UY','PE'].find(p=>document.getElementById('p-'+p)?.classList.contains('active'))||'AR'} · ${now.toLocaleDateString('es-AR')}`;
@@ -1792,10 +2112,115 @@ function staggerResultCards() {
   });
 }
 
+let _suppressSave = false;
+
 function calcular() {
   if (tipo === 'proyecto') calcProyecto();
   else if (tipo === 'soporte') calcSoporte();
   else calcManpower();
+  if (!_suppressSave) saveFormState();
+}
+
+function saveFormState() {
+  try {
+    const state = {
+      tipo, pais, modalidad,
+      'proyecto-cliente': document.getElementById('proyecto-cliente')?.value || '',
+      'proy-horas':       document.getElementById('proy-horas')?.value || '',
+      'proy-nube':        document.getElementById('proy-nube')?.checked || false,
+      'proy-margen':      document.getElementById('proy-margen')?.value || '',
+      'sop-horas':        document.getElementById('sop-horas')?.value || '',
+      'sop-tam':          document.getElementById('sop-tam')?.value || '',
+      'sop-margen':       document.getElementById('sop-margen')?.value || '',
+      'sop-psfp':         document.getElementById('sop-psfp')?.checked || false,
+      'mp-margen':        document.getElementById('mp-margen')?.value || '',
+      perfiles:           getPerfiles()
+    };
+    localStorage.setItem('datco_form', JSON.stringify(state));
+  } catch(e) {}
+}
+
+// Returns true if state was restored, false if nothing to restore
+function loadFormState() {
+  const raw = localStorage.getItem('datco_form');
+  if (!raw) return false;
+  try {
+    const s = JSON.parse(raw);
+    _suppressSave = true; // prevent intermediate saves during restore
+
+    // Set tipo/pais/modalidad directly without triggering calcular
+    if (s.tipo) {
+      tipo = s.tipo;
+      ['proyecto','soporte','manpower'].forEach(x => {
+        document.getElementById('t-'+x).classList.toggle('active', x===s.tipo);
+        document.getElementById('form-'+x).classList.toggle('hidden', x!==s.tipo);
+      });
+      document.getElementById('pais-row').style.display = s.tipo === 'manpower' ? 'none' : 'flex';
+    }
+    if (s.pais) {
+      pais = s.pais;
+      ['AR','CL','UY','PE'].forEach(x => document.getElementById('p-'+x).classList.toggle('active', x===s.pais));
+    }
+    if (s.modalidad) {
+      modalidad = s.modalidad;
+      document.getElementById('sop-5x8').classList.toggle('active', s.modalidad==='5x8');
+      document.getElementById('sop-7x24').classList.toggle('active', s.modalidad==='7x24');
+    }
+
+    const set = (id, val) => { const el = document.getElementById(id); if (el && val !== '' && val != null) el.value = val; };
+    const chk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+    set('proyecto-cliente', s['proyecto-cliente']);
+    set('proy-horas',       s['proy-horas']);
+    chk('proy-nube',        s['proy-nube']);
+    set('proy-margen',      s['proy-margen']);
+    set('sop-horas',        s['sop-horas']);
+    set('sop-tam',          s['sop-tam']);
+    set('sop-margen',       s['sop-margen']);
+    chk('sop-psfp',         s['sop-psfp']);
+    set('mp-margen',        s['mp-margen']);
+
+    if (s.perfiles && s.perfiles.length) {
+      document.getElementById('perfil-list').innerHTML = '';
+      perfilCounter = 0;
+      s.perfiles.forEach(p => {
+        addPerfil();
+        const id = perfilCounter;
+        document.getElementById('mp-pos-'    + id).value = p.pos    || '';
+        document.getElementById('mp-sueldo-' + id).value = p.sueldo || '';
+        document.getElementById('mp-cant-'   + id).value = p.cant   || 1;
+      });
+    } else {
+      // Manpower needs at least one row
+      if (!document.querySelector('.perfil-row')) addPerfil();
+    }
+
+    _suppressSave = false;
+    calcular(); // single recalculation with all fields populated
+    return true;
+  } catch(e) {
+    _suppressSave = false;
+    return false;
+  }
+}
+
+function clearForm() {
+  _suppressSave = true;
+  localStorage.removeItem('datco_form');
+  const clear = id => { const el = document.getElementById(id); if (el) el.value = ''; };
+  clear('proyecto-cliente'); clear('proy-horas'); clear('sop-horas'); clear('sop-tam');
+  document.getElementById('proy-nube').checked  = false;
+  document.getElementById('sop-psfp').checked   = false;
+  document.getElementById('proy-margen').value  = cfg.margen;
+  document.getElementById('sop-margen').value   = cfg.margen;
+  document.getElementById('mp-margen').value    = cfg.margen;
+  document.getElementById('perfil-list').innerHTML = '';
+  perfilCounter = 0;
+  addPerfil();
+  _suppressSave = false;
+  setTipo('proyecto');
+  setPais('AR');
+  setModalidad('5x8');
+  showToast('Formulario limpiado');
 }
 
 function showEmptyState() {
@@ -1804,6 +2229,7 @@ function showEmptyState() {
   document.getElementById('results-empty').classList.remove('hidden');
   document.getElementById('results-content').classList.add('hidden');
   document.getElementById('btn-export').style.display = 'none';
+  document.getElementById('btn-pdf').style.display = 'none';
 }
 
 function calcProyecto() {
